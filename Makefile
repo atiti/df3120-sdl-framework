@@ -1,9 +1,10 @@
 TARGET=testproc
-OBJECTS=picframe.o $(TARGET).o
+OBJECTS=datatypes.o picframe.o $(TARGET).o
+#CC=arm-v4t-linux-uclibcgnueabi-gcc
 CC=gcc
-ALLCFLAGS=-ggdb -O0 -Wall
-ALLLDFLAGS=
-ALLLIBS=-lSDL -lSDL_image
+ALLCFLAGS=-ggdb -O0 -Wall #-I/home/atiti/dev/Firmwares/DF3120/minifs/build-df3120/staging/usr/include
+ALLLDFLAGS= #--sysroot=/home/atiti/dev/Firmwares/DF3120/minifs/build-df3120/rootfs/
+ALLLIBS=-lSDL -lSDL_image -lSDL_ttf
 
 all: $(TARGET)
 
