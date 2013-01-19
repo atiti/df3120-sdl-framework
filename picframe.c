@@ -21,7 +21,7 @@ int picframe_init() {
 	/* Hide the mouse */
 	SDL_ShowCursor(0); 
 	/* Solid white background */
-	SDL_FillRect(_screen, &_screen->clip_rect, SDL_MapRGB(_screen->format, 255, 255, 255));
+	picframe_clear_screen();
 	/* Initialize the fonts */
 	if ( TTF_Init() == -1 ) {
 		fprintf(stderr, "Could not initalize SDL_ttf!\n");
@@ -35,6 +35,10 @@ int picframe_init() {
 	struct LList_t *node = picframe_add_window();
 
 	return 0;
+}
+
+void picframe_clear_screen() {
+	SDL_FillRect(_screen, &_screen->clip_rect, SDL_MapRGB(_screen->format, 255, 255,255));
 }
 
 struct LList_t *picframe_add_window() {
@@ -74,17 +78,28 @@ int picframe_update(struct LList_t *window) {
 	while (curr) {
 		if (curr->data) {
 			element = (Element_t *)curr->data;
-			if (!element) continue;
+			if (!element) {
+				curr = curr->next;
+				continue;
+			}
 
 			//printf("Disp surface %p and rect.x: %d rect.y: %d\n", element->surface, element->rect.x, element->rect.y);
 			if (element->selected) ts = element->surface_selected;
 			else ts = element->surface;
 
-			picframe_disp_surface(ts, &element->rect);		
+			if (ts) {
+				//printf("Disp surface %p and rect.x: %d rect.y: %d\n", ts, element->rect.x, element->rect.y);
+				picframe_disp_surface(ts, &element->rect);		
+			
+				if (element->dynamic) {
+					SDL_FreeSurface(element->surface);
+					element->surface = NULL;
+				}
+			}
 		}
 		curr = curr->next;
 	}
-
+	//printf("\n");
 	SDL_Flip(_screen);
 }
 
@@ -126,6 +141,11 @@ int picframe_set_backlight(int i) {
 int picframe_load_font(char *path, int size) {
 	if (_font) TTF_CloseFont(_font);
 
+	if (!path) {
+		fprintf(stderr, "No path given!\n");
+		return -1;
+	}
+
 	_font = TTF_OpenFont(path, size);
 	if (_font == NULL){
 		fprintf(stderr, "Unable to load font: %s %s \n", path, TTF_GetError());
@@ -137,7 +157,6 @@ int picframe_load_font(char *path, int size) {
 
 int picframe_gen_text(SDL_Surface **target, SDL_Color fgcolor, SDL_Color bgcolor, char *text) {
 	*target = TTF_RenderText_Shaded(_font, text, fgcolor, bgcolor);
-
 	return 0;
 }
 
@@ -174,7 +193,7 @@ int picframe_add_button(Element_t *b, SDL_Rect *rect, char *path, char *selected
 	b->surface_selected = tmp2;
 	memcpy(&(b->rect), rect, sizeof(SDL_Rect));
 	b->selected = 0;
-
+	b->dynamic = 0;
 	return 0;	
 }
 

@@ -14,6 +14,9 @@
 #include <SDL/SDL_image.h>
 #include <SDL/SDL_ttf.h>
 
+#define ELEMENT_TYPE_NONE 1
+#define ELEMENT_TYPE_BUTTON 2
+
 /* SDL specific stuff */
 SDL_Surface *_screen;
 TTF_Font *_font;
@@ -27,6 +30,7 @@ typedef struct {
 	SDL_Surface *surface_selected;
 	SDL_Rect rect;
 	int selected;
+	int dynamic;
 } Element_t;
 
 
@@ -34,6 +38,7 @@ int picframe_init();
 struct LList_t *picframe_add_window();
 struct LList_t *picframe_get_window();
 struct LList_t *picframe_add_element_to_window(struct LList_t *window, Element_t *data);
+void picframe_clear_screen();
 int picframe_get_event(SDL_Event *event);
 int picframe_get_lightsensor();
 int picframe_get_backlight();

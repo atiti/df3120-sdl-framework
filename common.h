@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#define DEBUG 0
+#define DEBUG 1
 
 #define debug_printf(fmt, ...) \
         do { if (DEBUG) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
