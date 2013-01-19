@@ -41,6 +41,14 @@ void picframe_clear_screen() {
 	SDL_FillRect(_screen, &_screen->clip_rect, SDL_MapRGB(_screen->format, 255, 255,255));
 }
 
+/* 
+ * Very simple (hacky) [vertial or horizontal] line drawing
+ * Better is possible by direct pixel manipulation or SDL_gfx
+ */
+void picframe_draw_line(SDL_Rect pos) {
+	SDL_FillRect(_screen, &pos, SDL_MapRGB(_screen->format, 0,0,0));
+}
+
 struct LList_t *picframe_add_window() {
 	struct LList_t *node = NULL;
 
@@ -162,6 +170,7 @@ int picframe_gen_text(SDL_Surface **target, SDL_Color fgcolor, SDL_Color bgcolor
 
 int picframe_load_image(SDL_Surface **target, char *path) {
 	SDL_Surface *tmp = NULL;
+	debug_printf("Loading image: %s\n", path);
 	tmp = IMG_Load(path);
 	if (!tmp) {
 		fprintf(stderr, "Failed to load image %s\n", path);
@@ -197,6 +206,55 @@ int picframe_add_button(Element_t *b, SDL_Rect *rect, char *path, char *selected
 	return 0;	
 }
 
+int picframe_add_button_text(Element_t *b, SDL_Rect *rect, int textsize, char *text) {
+	SDL_Color fg = {0,0,0,0};
+	SDL_Color bg = {255,255,255,0};
+
+	SDL_Surface *tmp = NULL;
+	SDL_Rect nr;
+	tmp = SDL_CreateRGBSurface(SDL_SWSURFACE, rect->w, rect->h, _screen->format->BitsPerPixel,
+				   _screen->format->Rmask, _screen->format->Gmask, _screen->format->Bmask, _screen->format->Amask);
+	
+	SDL_FillRect(tmp, &tmp->clip_rect, SDL_MapRGB(tmp->format, 0, 0,0));
+	nr.x = 2;
+	nr.y = 2;
+	nr.w = rect->w - 4;
+	nr.h = rect->h - 4;
+	SDL_FillRect(tmp, &nr, SDL_MapRGB(tmp->format, 255, 255, 255));
+
+
+	SDL_Surface *tmp_sel = NULL;
+	tmp_sel = SDL_CreateRGBSurface(SDL_SWSURFACE, rect->w, rect->h, _screen->format->BitsPerPixel,
+                                   _screen->format->Rmask, _screen->format->Gmask, _screen->format->Bmask, _screen->format->Amask);
+	SDL_FillRect(tmp_sel, &tmp_sel->clip_rect, SDL_MapRGB(tmp_sel->format, 0, 0,0));
+        nr.x = 4;
+        nr.y = 4;
+        nr.w = rect->w - 8;
+        nr.h = rect->h - 8;
+        SDL_FillRect(tmp_sel, &nr, SDL_MapRGB(tmp_sel->format, 255, 255, 255));
+
+	SDL_Surface *tmp_text = NULL;
+
+        picframe_load_font("fonts/Ubuntu-L.ttf", textsize);
+        picframe_gen_text(&tmp_text, fg, bg, text);
+	
+	nr.x = (rect->w/2) - (tmp_text->clip_rect.w/2);
+	nr.y = (rect->h/2) - (tmp_text->clip_rect.h/2);
+	nr.w = rect->w;
+	nr.h = rect->h;
+	
+        SDL_BlitSurface(tmp_text, NULL, tmp, &nr);
+	SDL_BlitSurface(tmp_text, NULL, tmp_sel, &nr);
+	
+	SDL_FreeSurface(tmp_text);	
+
+	b->surface = tmp;
+	b->surface_selected = tmp_sel;
+	memcpy(&(b->rect), rect, sizeof(SDL_Rect));
+	b->selected = 0;
+	b->dynamic = 0;
+	return 0;
+}
 
 void picframe_cleanup() {
 
