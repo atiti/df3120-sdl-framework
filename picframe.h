@@ -7,7 +7,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include "datatypes.h"
 
 #include <SDL/SDL.h>
@@ -35,6 +38,8 @@ typedef struct {
 
 
 int picframe_init();
+int picframe_gpio_init();
+int picframe_gpio_cleanup();
 struct LList_t *picframe_add_window();
 struct LList_t *picframe_get_window();
 struct LList_t *picframe_add_element_to_window(struct LList_t *window, Element_t *data);
@@ -50,6 +55,8 @@ int picframe_load_image(SDL_Surface **target, char *path);
 int picframe_disp_surface(SDL_Surface *src, SDL_Rect *rect);
 int picframe_add_button(Element_t *b, SDL_Rect *rect, char *path, char *selected);
 int picframe_add_button_text(Element_t *b, SDL_Rect *rect, int textsize, char *text);
+int picframe_add_progress_bar(Element_t *b, SDL_Rect *rect, int val);
+int picframe_update_progress_bar(Element_t *b, int val);
 int picframe_update();
 void picframe_cleanup();
 

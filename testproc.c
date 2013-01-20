@@ -1,7 +1,7 @@
 #include "picframe.h"
 #include <time.h>
 
-#define START_WINDOW 4
+#define START_WINDOW 2
 #define NUM_WINDOWS 5
 
 /* General elements for all windows */
@@ -9,6 +9,7 @@ Element_t left_arrow_icon, right_arrow_icon, window_label;
 /* Clock window elements */
 Element_t time_disp, info_disp;
 /* Media window elements */
+Element_t progress_bar;
 Element_t media_btns[5];
 char *window_labels[NUM_WINDOWS] = { "Date and Time", "Media Center", "Weather", "Lights", "Security Cam" };
 /* Weather window elements */
@@ -57,6 +58,7 @@ int curr_window_idx=START_WINDOW,prev_window_idx = START_WINDOW;
 SDL_Event event;
 SDL_Color fg = {0,0,0,0};
 SDL_Color bg = {255,255,255,0};
+int progress = 0;
 
 /*
  * Generic Input handling
@@ -264,10 +266,18 @@ void second_window_setup() {
         picframe_add_element_to_window(second_window, &left_arrow_icon);
         picframe_add_element_to_window(second_window, &right_arrow_icon);	
         picframe_add_element_to_window(second_window, &window_label);
+
+	tmp.x = 10;
+	tmp.y = (HEIGHT-20);
+	tmp.w = (WIDTH - 20);
+	tmp.h = 10;
+	picframe_add_progress_bar(&progress_bar, &tmp, 0);
+	picframe_add_element_to_window(second_window, &progress_bar);
 }
 
 int second_window_loop() {
-	int ret;
+	int ret, dir = 2;
+        time_t now, prev=0;
 
 	SDL_FreeSurface(window_label.surface);
         picframe_load_font("fonts/Ubuntu-L.ttf", 30);
@@ -277,6 +287,21 @@ int second_window_loop() {
         while (1) {
                 ret = handle_input();
 		if (ret) return ret;
+		
+		now = time(0);
+		if (now > prev) {
+			progress += dir;
+			if (progress > 100) {
+				progress = 100;
+				dir = -2;
+			}
+			if (progress < 0) {
+				progress = 0;
+				dir = 2;
+			}
+			prev = now;
+			picframe_update_progress_bar(&progress_bar, progress);
+		}
 
                 picframe_update(curr_window);
                 SDL_Delay(1);

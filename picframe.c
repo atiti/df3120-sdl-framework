@@ -34,7 +34,77 @@ int picframe_init() {
 	_num_windows = 0;
 	struct LList_t *node = picframe_add_window();
 
+	picframe_gpio_init();
+
 	return 0;
+}
+
+int picframe_gpio_export(int ex, int pin) {
+	char buff[50];
+	FILE *fp;
+	
+	if (ex) fp = fopen("/sys/class/gpio/export", "ab");
+	else fp = fopen("/sys/class/gpio/unexport", "ab");
+
+	if (!fp) return -1;
+	sprintf(buff, "%d", pin);
+	rewind(fp);
+	fwrite(&buff, sizeof(char), strlen(buff), fp);
+	fclose(fp);
+	return 0;
+}
+
+int picframe_gpio_setcfg(int gpio, int dir, int edge) {
+	char buff[50];
+	FILE *fp;
+
+	sprintf(buff, "/sys/class/gpio/gpio%d/direction", gpio);
+	fp = fopen(buff, "ab");
+	if (!fp) {
+		debug_printf("failed to open %s\n", buff);
+		return -1;
+	}
+	if (dir) sprintf(buff, "out");
+	else sprintf(buff, "in");
+
+	rewind(fp);
+	fwrite(&buff, sizeof(char), strlen(buff), fp);
+	fclose(fp);
+
+	sprintf(buff, "/sys/class/gpio/gpio%d/edge", gpio);
+	fp = fopen(buff, "ab");
+
+	if (!fp) {
+		debug_printf("failed to open %s\n", buff);
+		return -1;
+	}
+	if (edge == 0) sprintf(buff, "none");
+	else if (edge == 1) sprintf(buff, "falling");
+	else if (edge == 2) sprintf(buff, "rising");
+	
+	rewind(fp);
+	fwrite(&buff, sizeof(char), strlen(buff), fp);
+	fclose(fp);
+
+	return 0;
+}
+
+/* These are pretty DF3120 specific! */
+int picframe_gpio_init() {
+	picframe_gpio_export(1, 162);
+	picframe_gpio_export(1, 163);
+	picframe_gpio_export(1, 164);
+	/* Settings: direction=in, edge=falling */
+	picframe_gpio_setcfg(162, 0, 1);
+	picframe_gpio_setcfg(163, 0, 1);
+	picframe_gpio_setcfg(164, 0, 1);
+
+}
+
+int picframe_gpio_cleanup() {
+	picframe_gpio_export(0, 162);
+	picframe_gpio_export(0, 163);
+	picframe_gpio_export(0, 164);
 }
 
 void picframe_clear_screen() {
@@ -256,6 +326,50 @@ int picframe_add_button_text(Element_t *b, SDL_Rect *rect, int textsize, char *t
 	return 0;
 }
 
-void picframe_cleanup() {
+int picframe_add_progress_bar(Element_t *b, SDL_Rect *rect, int val) {
+        SDL_Color fg = {0,0,0,0};
+        SDL_Color bg = {255,255,255,0};
 
+        SDL_Surface *tmp = NULL;
+        SDL_Rect nr;
+        tmp = SDL_CreateRGBSurface(SDL_SWSURFACE, rect->w, rect->h, _screen->format->BitsPerPixel,
+                                   _screen->format->Rmask, _screen->format->Gmask, _screen->format->Bmask, _screen->format->Amask);
+
+        SDL_FillRect(tmp, &tmp->clip_rect, SDL_MapRGB(tmp->format, 0, 0,0));
+        nr.x = 2;
+        nr.y = 2;
+        nr.w = rect->w - 4;
+        nr.h = rect->h - 4;
+        SDL_FillRect(tmp, &nr, SDL_MapRGB(tmp->format, 255, 255, 255));
+
+	b->surface = tmp;
+	b->surface_selected = NULL;
+	memcpy(&(b->rect), rect, sizeof(SDL_Rect));
+	b->selected =0;
+	b->dynamic = 0;
+
+	picframe_update_progress_bar(b, val);
+
+	return 0;
+}
+
+int picframe_update_progress_bar(Element_t *b, int val) {
+	debug_printf("Updating progress bar: %d%\n", val);
+	/* Clean the progress bar */
+	SDL_Rect nr;
+	nr.x = 2;
+        nr.y = 2;
+        nr.w = b->rect.w - 4;
+        nr.h = b->rect.h - 4;
+
+        SDL_FillRect(b->surface, &nr, SDL_MapRGB(b->surface->format, 255, 255, 255));
+	/* Fill to the percentage */
+	
+	nr.w = (int)((val/100.0)*(b->rect.w-4));
+	SDL_FillRect(b->surface, &nr, SDL_MapRGB(b->surface->format, 0,0,0));
+	return 0;
+}
+
+void picframe_cleanup() {
+	picframe_gpio_cleanup();
 }

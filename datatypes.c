@@ -18,8 +18,8 @@ void *llist_get_data(struct LList_t *node) {
 
 struct LList_t *llist_insert_node(struct LList_t **head, struct LList_t *node) {
 	struct LList_t *ptr = *head;
-	debug_printf("got head: %p (%p)\n", head, *head);
-	llist_all_nodes(*head);
+	//debug_printf("got head: %p (%p)\n", head, *head);
+	//llist_all_nodes(*head);
 	do {
 		if (ptr == NULL || ptr->next == NULL) {
 			if (ptr == NULL) {
