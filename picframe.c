@@ -56,35 +56,30 @@ int picframe_gpio_export(int ex, int pin) {
 
 int picframe_gpio_setcfg(int gpio, int dir, int edge) {
 	char buff[50];
-	FILE *fp;
+	int fp;
+
+        sprintf(buff, "/sys/class/gpio/gpio%d/edge", gpio);
+        fp = open(buff, O_WRONLY);
+
+        if (!fp) {
+                debug_printf("failed to open %s\n", buff);
+                return -1;
+        }
+        if (edge == 0) write(fp, "none", 4);
+        else if (edge == 1) write(fp, "falling", 4);
+        else if (edge == 2) write(fp, "rising", 4);
+	else if (edge == 3) write(fp, "both", 4);
+	close(fp);
 
 	sprintf(buff, "/sys/class/gpio/gpio%d/direction", gpio);
-	fp = fopen(buff, "ab");
+	fp = open(buff, O_WRONLY);
 	if (!fp) {
 		debug_printf("failed to open %s\n", buff);
 		return -1;
 	}
-	if (dir) sprintf(buff, "out");
-	else sprintf(buff, "in");
-
-	rewind(fp);
-	fwrite(&buff, sizeof(char), strlen(buff), fp);
-	fclose(fp);
-
-	sprintf(buff, "/sys/class/gpio/gpio%d/edge", gpio);
-	fp = fopen(buff, "ab");
-
-	if (!fp) {
-		debug_printf("failed to open %s\n", buff);
-		return -1;
-	}
-	if (edge == 0) sprintf(buff, "none");
-	else if (edge == 1) sprintf(buff, "falling");
-	else if (edge == 2) sprintf(buff, "rising");
-	
-	rewind(fp);
-	fwrite(&buff, sizeof(char), strlen(buff), fp);
-	fclose(fp);
+	if (dir) write(fp, "out", 3);
+	else write(fp, "in", 2);
+	close(fp);
 
 	return 0;
 }
@@ -98,13 +93,84 @@ int picframe_gpio_init() {
 	picframe_gpio_setcfg(162, 0, 1);
 	picframe_gpio_setcfg(163, 0, 1);
 	picframe_gpio_setcfg(164, 0, 1);
+	/* BUG: somehow the edge detect doesnt work first */
+	system("echo falling > /sys/class/gpio/gpio162/edge");
+	system("echo both > /sys/class/gpio/gpio162/edge");
+        system("echo falling > /sys/class/gpio/gpio163/edge");
+        system("echo both > /sys/class/gpio/gpio163/edge");
+        system("echo falling > /sys/class/gpio/gpio164/edge");
+        system("echo both > /sys/class/gpio/gpio164/edge");
 
+	_max_fds = 0;
+        // TODO: Failure handling here
+        _gpio_fds[0] = open("/sys/class/gpio/gpio162/value", O_RDONLY | O_NONBLOCK);
+        _gpio_fds[1] = open("/sys/class/gpio/gpio163/value", O_RDONLY | O_NONBLOCK);
+        _gpio_fds[2] = open("/sys/class/gpio/gpio164/value", O_RDONLY | O_NONBLOCK);
+
+	// TODO: currently blind handling of buttons, default is active
+	_buttons[0].val = 1;
+	_buttons[0].pval = 1;
+	_buttons[1].val = 1;
+	_buttons[1].pval = 1;
+	_buttons[2].val = 1;
+	_buttons[2].pval = 1;
 }
 
 int picframe_gpio_cleanup() {
+	close(_gpio_fds[0]);
+	close(_gpio_fds[1]);
+	close(_gpio_fds[2]);
+
 	picframe_gpio_export(0, 162);
 	picframe_gpio_export(0, 163);
 	picframe_gpio_export(0, 164);
+}
+
+int picframe_gpio_handle_events(SDL_Event *event) {
+	char buff[10];
+	int rs, i;
+
+	memset((void*)_fd_set, 0, sizeof(_fd_set));
+	_fd_set[0].fd = _gpio_fds[0];
+	_fd_set[0].events = POLLPRI;
+	_fd_set[1].fd = _gpio_fds[1];
+	_fd_set[1].events = POLLPRI;
+	_fd_set[2].fd = _gpio_fds[2];
+	_fd_set[2].events = POLLPRI;
+
+	rs = poll(_fd_set, NUM_GPIO_KEYS, 50);
+
+	if (rs < 0) {
+		debug_printf("Error in poll(): %d,%d\n", rs, errno);
+		return -1;
+	} else if (rs == 0) {
+	} else {
+		rs = 1;
+		for(i=0;i<NUM_GPIO_KEYS;i++) {
+			if (_fd_set[i].revents & POLLPRI) {
+				(void)read(_gpio_fds[i], buff, 1);
+				debug_printf("Button %d value change: %d\n", i, buff[0]);
+			
+				_buttons[i].pval = _buttons[i].val;
+				if (_buttons[i].val) {
+					event->type = SDL_KEYUP;
+					_buttons[i].val = 0;
+				} else {
+					event->type = SDL_KEYDOWN;
+					_buttons[i].val = 1;
+				}
+
+				if (i==0)
+					event->key.keysym.sym = SDLK_RIGHT;
+				else if (i==1)
+					event->key.keysym.sym = SDLK_LEFT;
+				else if (i==2)
+					event->key.keysym.sym = SDLK_RETURN;
+				return rs;	
+			}
+		}
+	}
+	return rs;
 }
 
 void picframe_clear_screen() {
@@ -145,8 +211,13 @@ struct LList_t *picframe_add_element_to_window(struct LList_t *window, Element_t
 
 
 int picframe_get_event(SDL_Event *event) {
-	//SDL_WaitEvent(event);
-	return SDL_PollEvent(event);
+	int rc;
+	rc = SDL_PollEvent(event);
+	if (!rc) {
+		rc = picframe_gpio_handle_events(event);
+	}
+
+	return rc;
 }
 
 int picframe_update(struct LList_t *window) {

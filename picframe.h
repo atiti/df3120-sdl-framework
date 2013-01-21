@@ -11,6 +11,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <poll.h>
+#include <errno.h>
 #include "datatypes.h"
 
 #include <SDL/SDL.h>
@@ -28,6 +30,18 @@ TTF_Font *_font;
 struct LList_t *_windows;
 int _num_windows;
 
+/* GPIO event handling */
+typedef struct {
+	int val;
+	int pval;
+} button_t;
+
+#define NUM_GPIO_KEYS 3
+unsigned int _gpio_fds[NUM_GPIO_KEYS];
+button_t _buttons[NUM_GPIO_KEYS];
+struct pollfd _fd_set[NUM_GPIO_KEYS];
+int _max_fds;
+
 typedef struct {
 	SDL_Surface *surface;
 	SDL_Surface *surface_selected;
@@ -40,6 +54,7 @@ typedef struct {
 int picframe_init();
 int picframe_gpio_init();
 int picframe_gpio_cleanup();
+int picframe_gpio_handle_events();
 struct LList_t *picframe_add_window();
 struct LList_t *picframe_get_window();
 struct LList_t *picframe_add_element_to_window(struct LList_t *window, Element_t *data);
